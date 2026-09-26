@@ -1,9 +1,15 @@
-// Đăng ký Service Worker chạy Offline
+// ==========================================
+// 1. ĐĂNG KÝ SERVICE WORKER CHẠY OFFLINE
+// ==========================================
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js');
+  navigator.serviceWorker.register('sw.js').catch((err) => {
+    console.log('SW register failed: ', err);
+  });
 }
 
-// 1. Khởi tạo Cơ sở dữ liệu IndexedDB trên máy
+// ==========================================
+// 2. KHỞI TẠO CƠ SỞ DỮ LIỆU INDEXEDDB TRÊN MÁY
+// ==========================================
 let db;
 const request = indexedDB.open('QLPhamNhanDB', 1);
 
@@ -19,7 +25,13 @@ request.onsuccess = (e) => {
   loadPrisoners();
 };
 
-// 2. Chuyển tab nhập liệu
+request.onerror = (e) => {
+  console.error('Lỗi khởi tạo IndexedDB:', e.target.error);
+};
+
+// ==========================================
+// 3. ĐIỀU HƯỚNG TAB NHẬP LIỆU
+// ==========================================
 function switchTab(index) {
   document.querySelectorAll('.tab-btn').forEach((btn, idx) => {
     btn.classList.toggle('active', idx === index);
@@ -29,7 +41,9 @@ function switchTab(index) {
   });
 }
 
-// 3. Quản lý Form & Hiển thị
+// ==========================================
+// 4. QUẢN LÝ GIAO DIỆN FORM & DANH SÁCH
+// ==========================================
 function openForm(id = null) {
   document.getElementById('listSection').style.display = 'none';
   document.getElementById('formSection').style.display = 'block';
@@ -59,7 +73,9 @@ function closeForm() {
   document.getElementById('formSection').style.display = 'none';
 }
 
-// 4. Lưu hồ sơ vào IndexedDB
+// ==========================================
+// 5. LƯU DỮ LIỆU VÀO BỘ NHỚ MÁY
+// ==========================================
 document.getElementById('recordForm').onsubmit = (e) => {
   e.preventDefault();
   const idVal = document.getElementById('recordId').value;
@@ -101,7 +117,9 @@ document.getElementById('recordForm').onsubmit = (e) => {
   };
 };
 
-// 5. Tải danh sách & Tìm kiếm
+// ==========================================
+// 6. TẢI DANH SÁCH & TÌM KIẾM
+// ==========================================
 function loadPrisoners(query = '') {
   const container = document.getElementById('prisonerList');
   container.innerHTML = '';
@@ -112,23 +130,24 @@ function loadPrisoners(query = '') {
     const cursor = e.target.result;
     if (cursor) {
       const p = cursor.value;
-      const searchMatch = !query || 
-        p.ho_ten.toLowerCase().includes(query.toLowerCase()) || 
-        p.shspn.toLowerCase().includes(query.toLowerCase()) ||
-        (p.so_cccd && p.so_cccd.includes(query));
+      const q = query.toLowerCase().trim();
+      const match = !q || 
+        (p.ho_ten && p.ho_ten.toLowerCase().includes(q)) || 
+        (p.shspn && p.shspn.toLowerCase().includes(q)) ||
+        (p.so_cccd && p.so_cccd.includes(q));
 
-      if (searchMatch) {
+      if (match) {
         const item = document.createElement('div');
         item.className = 'item';
         item.innerHTML = `
           <div>
-            <strong>${p.ho_ten}</strong> (SHS: ${p.shspn})<br>
+            <strong>${p.ho_ten}</strong> (SHS: ${p.shspn || '---'})<br>
             <small>Tội danh: ${p.toi_danh || 'Chưa rõ'} | Ngày sinh: ${p.ngay_sinh || '---'}</small>
           </div>
           <div style="display:flex; gap:6px;">
-            <button onclick="exportWord(${p.id})">Xuất Word</button>
-            <button onclick="openForm(${p.id})">Sửa</button>
-            <button class="btn-danger" onclick="deletePrisoner(${p.id})">Xóa</button>
+            <button type="button" onclick="exportWord(${p.id})">Xuất Word</button>
+            <button type="button" onclick="openForm(${p.id})">Sửa</button>
+            <button type="button" class="btn-danger" onclick="deletePrisoner(${p.id})">Xóa</button>
           </div>
         `;
         container.appendChild(item);
@@ -151,22 +170,38 @@ function deletePrisoner(id) {
   }
 }
 
-// 6. XUẤT FILE WORD TỰ ĐỘNG CHUẨN MẪU PT78BH
+// ==========================================
+// 7. XUẤT FILE WORD (XỬ LÝ TRIỆT ĐỂ LỖI UNDEFINED)
+// ==========================================
 async function exportWord(id) {
   const tx = db.transaction('pham_nhan', 'readonly');
   tx.objectStore('pham_nhan').get(id).onsuccess = async (e) => {
     const data = e.target.result;
-    if (!data) return;
+    if (!data) {
+      alert('Không tìm thấy dữ liệu phạm nhân!');
+      return;
+    }
 
     try {
-      // Đọc file template.docx lưu sẵn trong app
+      // 1. Tải file template.docx
       const response = await fetch('./template.docx');
+      if (!response.ok) {
+        throw new Error('Không tìm thấy file template.docx trong kho lưu trữ.');
+      }
       const content = await response.arrayBuffer();
 
+      // 2. Khởi tạo PizZip & Docxtemplater
       const zip = new PizZip(content);
-      const doc = new window.docxtemplater(zip, { paragraphLoop: true, linebreaks: true });
+      const doc = new window.docxtemplater(zip, {
+        paragraphLoop: true,
+        linebreaks: true,
+        // Cấu hình nullGetter: Trường nào không có dữ liệu sẽ để trống, không in chữ "undefined"
+        nullGetter: function() {
+          return "";
+        }
+      });
 
-      // Đưa dữ liệu vào template
+      // 3. Khớp các trường dữ liệu
       doc.render({
         shspn: data.shspn || '',
         ho_ten: data.ho_ten || '',
@@ -185,24 +220,36 @@ async function exportWord(id) {
         thong_tin_vo_chong: data.thong_tin_vo_chong || '',
         con_va_anh_em: data.con_va_anh_em || '',
         nhan_xet_can_bo: data.nhan_xet_can_bo || '',
-        khen_thuong_ky_luat: data.khen_thuong_ky_luat || ''
+        khen_thuong_ky_luat: data.khen_thuong_ky_luat || '',
+        // Các biến ngày tháng phần cuối trang bìa
+        tu_ngay: '......',
+        tu_thang: '......',
+        tu_nam: '20...',
+        den_ngay: '......',
+        den_thang: '......',
+        den_nam: '20...'
       });
 
+      // 4. Sinh file Word dạng Blob
       const out = doc.getZip().generate({
         type: 'blob',
         mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
       });
 
-      // Tải trực tiếp file Word về điện thoại
-      saveAs(out, `PT78BH_${data.shspn}_${data.ho_ten}.docx`);
+      // 5. Tự động tải file Word về bộ nhớ máy điện thoại
+      const cleanName = (data.ho_ten || 'PhamNhan').replace(/[^a-zA-Z0-9\s]/g, '').trim();
+      saveAs(out, `PT78BH_${data.shspn || 'HS'}_${cleanName}.docx`);
+
     } catch (err) {
       console.error(err);
-      alert('Lỗi khi xuất file Word: Kiểm tra lại file template.docx');
+      alert('Lỗi xuất file Word: ' + err.message);
     }
   };
 }
 
-// 7. Chức năng sao lưu toàn bộ dữ liệu ra file JSON
+// ==========================================
+// 8. SAO LƯU DỮ LIỆU RA FILE JSON CỤC BỘ
+// ==========================================
 function exportBackupData() {
   const tx = db.transaction('pham_nhan', 'readonly');
   const allData = [];
@@ -212,6 +259,10 @@ function exportBackupData() {
       allData.push(cursor.value);
       cursor.continue();
     } else {
+      if (allData.length === 0) {
+        alert('Chưa có dữ liệu nào để sao lưu!');
+        return;
+      }
       const blob = new Blob([JSON.stringify(allData, null, 2)], { type: 'application/json' });
       saveAs(blob, `SaoLuu_PhamNhan_${new Date().toISOString().slice(0,10)}.json`);
     }
