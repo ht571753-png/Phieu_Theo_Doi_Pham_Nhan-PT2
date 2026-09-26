@@ -171,72 +171,151 @@ function deletePrisoner(id) {
 }
 
 // ==========================================
-// 7. XUẤT FILE WORD (XỬ LÝ TRIỆT ĐỂ LỖI UNDEFINED)
+// 7. XUẤT FILE WORD TƯƠNG THÍCH MẪU ${tên_biến}
 // ==========================================
 async function exportWord(id) {
   const tx = db.transaction('pham_nhan', 'readonly');
   tx.objectStore('pham_nhan').get(id).onsuccess = async (e) => {
     const data = e.target.result;
     if (!data) {
-      alert('Không tìm thấy dữ liệu phạm nhân!');
+      alert('Không tìm thấy dữ liệu!');
       return;
     }
 
     try {
-      // 1. Tải file template.docx
+      // Tải file template.docx
       const response = await fetch('./template.docx');
       if (!response.ok) {
-        throw new Error('Không tìm thấy file template.docx trong kho lưu trữ.');
+        throw new Error('Không tìm thấy file template.docx trên hệ thống.');
       }
       const content = await response.arrayBuffer();
 
-      // 2. Khởi tạo PizZip & Docxtemplater
       const zip = new PizZip(content);
+      
+      // Cấu hình delimiters nhận diện đúng cú pháp ${...}
       const doc = new window.docxtemplater(zip, {
+        delimiters: { start: '${', end: '}' },
         paragraphLoop: true,
         linebreaks: true,
-        // Cấu hình nullGetter: Trường nào không có dữ liệu sẽ để trống, không in chữ "undefined"
         nullGetter: function() {
-          return "";
+          return ""; // Ô trống sẽ để khoảng trắng, không bao giờ hiện undefined
         }
       });
 
-      // 3. Khớp các trường dữ liệu
+      // Khớp chính xác toàn bộ danh sách biến trong file template.docx
       doc.render({
-        shspn: data.shspn || '',
-        ho_ten: data.ho_ten || '',
-        ngay_sinh: data.ngay_sinh || '',
-        so_cccd: data.so_cccd || '',
-        que_quan: data.que_quan || '',
-        thuong_tru: data.thuong_tru || '',
-        toi_danh: data.toi_danh || '',
-        an_phat: data.an_phat || '',
-        ngay_bat: data.ngay_bat || '',
-        ngay_den_trai: data.ngay_den_trai || '',
-        hanh_vi: data.hanh_vi || '',
-        nghia_vu_dan_su: data.nghia_vu_dan_su || '',
-        thong_tin_bo: data.thong_tin_bo || '',
-        thong_tin_me: data.thong_tin_me || '',
-        thong_tin_vo_chong: data.thong_tin_vo_chong || '',
-        con_va_anh_em: data.con_va_anh_em || '',
-        nhan_xet_can_bo: data.nhan_xet_can_bo || '',
-        khen_thuong_ky_luat: data.khen_thuong_ky_luat || '',
-        // Các biến ngày tháng phần cuối trang bìa
+        // Trang bìa
+        ho_ten_bia: data.ho_ten || '',
+        ngay_sinh_bia: data.ngay_sinh || '',
+        dktt_bia: data.thuong_tru || '',
+        toi_danh_bia: data.toi_danh || '',
+        ngay_bat_bia: data.ngay_bat || '',
+        an_phat_bia: data.an_phat || '',
         tu_ngay: '......',
         tu_thang: '......',
         tu_nam: '20...',
         den_ngay: '......',
         den_thang: '......',
-        den_nam: '20...'
+        den_nam: '20...',
+
+        // Mục I: Sơ lược lý lịch
+        shspn: data.shspn || '',
+        ho_ten: data.ho_ten || '',
+        ho_ten_khac: data.ho_ten_khac || '',
+        que_quan: data.que_quan || '',
+        thuong_tru: data.thuong_tru || '',
+        cccd: data.so_cccd || '',
+        ngay_cap_cccd: data.ngay_cap_cccd || '',
+        noi_cap_cccd: data.noi_cap_cccd || '',
+        dan_toc: data.dan_toc || 'Kinh',
+        quoc_tich: data.quoc_tich || 'Việt Nam',
+        ton_giao: data.ton_giao || 'Không',
+        hoc_van: data.hoc_van || '',
+        toi_danh: data.toi_danh || '',
+        ngay_bat: data.ngay_bat || '',
+        an_phat: data.an_phat || '',
+        ngay_den_trai: data.ngay_den_trai || '',
+        so_ban_an: data.so_ban_an || '',
+        ngay_ban_an: data.ngay_ban_an || '',
+        toaan_ban_an: data.toaan_ban_an || '',
+        so_tha: data.so_tha || '',
+        ngay_tha: data.ngay_tha || '',
+        toaan_tha: data.toaan_tha || '',
+        tg_tam_giu_giam: data.tg_tam_giu_giam || '',
+        pham_toi_khi_tam_giam: data.pham_toi_khi_tam_giam || '',
+        tg_chua_benh_bat_buoc: data.tg_chua_benh_bat_buoc || '',
+        bo_tron_chua_benh: data.bo_tron_chua_benh || '',
+        tien_an: data.tien_an || 'Không',
+        tien_su: data.tien_su || 'Không',
+        tien_su_ma_tuy: data.tien_su_ma_tuy || 'Không',
+        tien_su_benh_tat: data.tien_su_benh_tat || 'Bình thường',
+        tron_trai_giam: data.tron_trai_giam || 'Không',
+        bat_lai_dau_thu: data.bat_lai_dau_thu || '',
+
+        // Nghĩa vụ tài chính / Án phí
+        phat_tien: data.phat_tien || '',
+        phat_tien_da_th: data.phat_tien_da_th || '',
+        phat_tien_chua_th: data.phat_tien_chua_th || '',
+        bt_thiet_hai: data.bt_thiet_hai || '',
+        bt_da_th: data.bt_da_th || '',
+        bt_chua_th: data.bt_chua_th || '',
+        tra_tai_san: data.tra_tai_san || '',
+        tra_ts_da_th: data.tra_ts_da_th || '',
+        tra_ts_chua_th: data.tra_ts_chua_th || '',
+        an_phi_hs: data.an_phi_hs || '',
+        aphs_da_th: data.aphs_da_th || '',
+        aphs_chua_th: data.aphs_chua_th || '',
+        an_phi_ds: data.an_phi_ds || '',
+        apds_da_th: data.apds_da_th || '',
+        apds_chua_th: data.apds_chua_th || '',
+        hpbs_khac: data.hpbs_khac || '',
+
+        // Mục II: Hành vi phạm tội
+        tom_tat_hanh_vi_pham_toi: data.hanh_vi || '',
+
+        // Mục III: Gia đình
+        ho_ten_bo: data.thong_tin_bo || '',
+        nam_sinh_bo: '',
+        nguyen_quan_bo: '',
+        dktt_bo: '',
+        cho_o_bo: '',
+        nghe_nghiep_bo: '',
+
+        ho_ten_me: data.thong_tin_me || '',
+        nam_sinh_me: '',
+        nguyen_quan_me: '',
+        dktt_me: '',
+        cho_o_me: '',
+        nghe_nghiep_me: '',
+
+        ho_ten_vo_chong: data.thong_tin_vo_chong || '',
+        nam_sinh_vo_chong: '',
+        nguyen_quan_vo_chong: '',
+        dktt_vo_chong: '',
+        cho_o_vo_chong: '',
+        nghe_nghiep_vo_chong: '',
+
+        thong_tin_cac_con: data.con_va_anh_em || '',
+        anh_chi_em_ruot: '',
+        bo_me_con_nuoi: '',
+
+        // Mục IV & V: Quan hệ xã hội & Quá trình chấp hành án
+        quan_he_xa_hoi: '',
+        tam_dinh_chi: '',
+        tha_tu_tthcdk: '',
+        pham_toi_moi: 'Không',
+        phan_loai_quan_che: '',
+        trich_xuat: 'Không',
+        chuyen_doi_phan_trai: '',
+        nhan_xet_can_bo: data.nhan_xet_can_bo || '',
+        thong_tin_khac: data.khen_thuong_ky_luat || ''
       });
 
-      // 4. Sinh file Word dạng Blob
       const out = doc.getZip().generate({
         type: 'blob',
         mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
       });
 
-      // 5. Tự động tải file Word về bộ nhớ máy điện thoại
       const cleanName = (data.ho_ten || 'PhamNhan').replace(/[^a-zA-Z0-9\s]/g, '').trim();
       saveAs(out, `PT78BH_${data.shspn || 'HS'}_${cleanName}.docx`);
 
