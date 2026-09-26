@@ -1,4 +1,4 @@
-const CACHE_NAME = 'qlpn-cache-v1';
+const CACHE_NAME = 'qlpn-cache-v2';
 const ASSETS = [
   './',
   './index.html',
@@ -15,6 +15,21 @@ self.addEventListener('install', (e) => {
     caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
   );
   self.skipWaiting();
+});
+
+self.addEventListener('activate', (e) => {
+  e.waitUntil(
+    caches.keys().then((keys) => {
+      return Promise.all(
+        keys.map((key) => {
+          if (key !== CACHE_NAME) {
+            return caches.delete(key); // Xóa sạch bộ nhớ đệm cũ
+          }
+        })
+      );
+    })
+  );
+  self.clients.claim();
 });
 
 self.addEventListener('fetch', (e) => {
