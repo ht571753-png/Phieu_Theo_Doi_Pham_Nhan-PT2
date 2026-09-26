@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quản lý Hồ sơ Phạm nhân</title>
+  <link rel="manifest" href="manifest.json">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; background: #f1f5f9; margin: 0; padding: 12px; color: #1e293b; }
+    .card { background: #fff; border-radius: 8px; padding: 16px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    h2, h3 { margin-top: 0; color: #0f172a; }
+    input, select, textarea { width: 100%; padding: 10px; margin: 6px 0 12px; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; }
+    button { background: #0284c7; color: #fff; border: none; padding: 10px 16px; border-radius: 6px; font-weight: bold; cursor: pointer; }
+    button.btn-danger { background: #ef4444; }
+    button.btn-success { background: #10b981; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .tabs { display: flex; overflow-x: auto; gap: 8px; margin-bottom: 12px; }
+    .tab-btn { background: #e2e8f0; color: #334155; white-space: nowrap; font-size: 13px; }
+    .tab-btn.active { background: #0284c7; color: #fff; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    .item { padding: 10px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; }
+  </style>
+  <!-- Các thư viện xử lý Offline Word -->
+  <script src="https://cdn.jsdelivr.net/npm/pizzip@3.1.6/dist/pizzip.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/docxtemplater@3.42.0/build/docxtemplater.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+</head>
+<body>
+
+  <!-- Khối Tìm kiếm & Danh sách -->
+  <div class="card" id="listSection">
+    <h2>Danh Sách Phạm Nhân</h2>
+    <input type="text" id="searchInput" placeholder="Tìm theo tên, SHSPN, CCCD..." oninput="searchData()">
+    <button class="btn-success" onclick="openForm()">+ Thêm hồ sơ mới</button>
+    <button onclick="exportBackupData()">Sao lưu dữ liệu</button>
+    <div id="prisonerList" style="margin-top: 15px;"></div>
+  </div>
+
+  <!-- Khối Form Nhập liệu -->
+  <div class="card" id="formSection" style="display: none;">
+    <h3 id="formTitle">Thông Tin Hồ Sơ</h3>
+    
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab(0)">I. Lý Lịch</button>
+      <button class="tab-btn" onclick="switchTab(1)">II. Tội Danh</button>
+      <button class="tab-btn" onclick="switchTab(2)">III & IV. Thân Nhân</button>
+      <button class="tab-btn" onclick="switchTab(3)">V. Quá Trình</button>
+    </div>
+
+    <form id="recordForm">
+      <input type="hidden" id="recordId">
+
+      <!-- Tab I: Sơ lược lý lịch -->
+      <div class="tab-content active" id="tab0">
+        <div class="grid-2">
+          <div><label>Số hồ sơ (SHSPN):</label><input type="text" id="shspn" required></div>
+          <div><label>Họ và tên:</label><input type="text" id="ho_ten" required></div>
+        </div>
+        <div class="grid-2">
+          <div><label>Ngày sinh:</label><input type="text" id="ngay_sinh" placeholder="dd/mm/yyyy"></div>
+          <div><label>Số CCCD/CC:</label><input type="text" id="so_cccd"></div>
+        </div>
+        <div><label>Quê quán:</label><input type="text" id="que_quan"></div>
+        <div><label>Nơi ĐKTT:</label><input type="text" id="thuong_tru"></div>
+        <div class="grid-2">
+          <div><label>Tội danh:</label><input type="text" id="toi_danh"></div>
+          <div><label>Án phạt:</label><input type="text" id="an_phat"></div>
+        </div>
+        <div class="grid-2">
+          <div><label>Ngày bắt:</label><input type="text" id="ngay_bat"></div>
+          <div><label>Ngày đến trại:</label><input type="text" id="ngay_den_trai"></div>
+        </div>
+      </div>
+
+      <!-- Tab II: Hành vi & Án phí -->
+      <div class="tab-content" id="tab1">
+        <label>Tóm tắt hành vi phạm tội:</label>
+        <textarea id="hanh_vi" rows="5"></textarea>
+        <label>Phạt tiền & Án phí (Ghi rõ đã/chưa thực hiện):</label>
+        <textarea id="nghia_vu_dan_su" rows="3"></textarea>
+      </div>
+
+      <!-- Tab III & IV: Gia đình & Xã hội -->
+      <div class="tab-content" id="tab2">
+        <label>Họ tên Bố, năm sinh, nơi ở, nghề nghiệp:</label>
+        <input type="text" id="thong_tin_bo">
+        <label>Họ tên Mẹ, năm sinh, nơi ở, nghề nghiệp:</label>
+        <input type="text" id="thong_tin_me">
+        <label>Họ tên Vợ/Chồng, năm sinh, chỗ ở:</label>
+        <input type="text" id="thong_tin_vo_chong">
+        <label>Các con & Anh chị em ruột:</label>
+        <textarea id="con_va_anh_em" rows="3"></textarea>
+      </div>
+
+      <!-- Tab V: Quá trình chấp hành án -->
+      <div class="tab-content" id="tab3">
+        <label>Nhận xét / Đánh giá cán bộ quản giáo:</label>
+        <textarea id="nhan_xet_can_bo" rows="4"></textarea>
+        <label>Thông tin khen thưởng, kỷ luật, giảm án:</label>
+        <textarea id="khen_thuong_ky_luat" rows="3"></textarea>
+      </div>
+
+      <div style="margin-top: 15px; display: flex; gap: 8px;">
+        <button type="submit" class="btn-success">Lưu Vào Máy</button>
+        <button type="button" onclick="closeForm()">Đóng</button>
+      </div>
+    </form>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
